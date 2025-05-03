@@ -1,20 +1,30 @@
 # A2A Chat
 
-这是一个基于 A2A（Agent-to-Agent） 协议的聊天应用，有以下特点：
+这是一个基于 A2A（[Agent-to-Agent](https://github.com/google/A2A)） 协议的聊天应用，有以下特点：
 
 * 数据本地存储，可以通过链接添加 Agent， 应用通过读取 Agent Card 展示 Agent 信息
 * 通过对话方式使用 Agent，当前版本暂只支持发送文本
 * 流式显示 Agent 的响应，支持 Artifact 的显示
 
-关于 A2A 的详细介绍见：https://google.github.io/A2A/
+关于 A2A 的详细介绍见：
+* https://google.github.io/A2A/
+* https://github.com/google/A2A
+
+截图
+
+![a2achat2](https://github.com/user-attachments/assets/50c973d1-8ac9-4578-94fd-80cfe03b9805)
+![a2achat1](https://github.com/user-attachments/assets/d8db017f-6337-475a-820f-68b595977791)
+
+
 
 ## 开始使用
 
 ### 方法 1：本地部署（推荐）
 1. 克隆本项目到本地
 
-    git clone https://github.com/HiveNexus/a2a-chat.git
-
+``` bash
+git clone https://github.com/HiveNexus/a2a-chat.git
+```
 2. 安装依赖库
 
 ```
