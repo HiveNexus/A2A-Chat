@@ -156,7 +156,7 @@ const AgentList: React.FC<AgentListProps> = ({ agents, selectedAgentId, onSelect
 
       <div className="p-3 border-t border-gray-200 flex justify-center items-center">
         <a
-          href="https://github.com/HiveNexus/A2AChat"
+          href="https://github.com/HiveNexus/A2A-Chat"
           target="_blank"
           rel="noopener noreferrer"
           style={{ color: 'inherit' }}
