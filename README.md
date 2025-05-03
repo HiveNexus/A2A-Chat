@@ -62,3 +62,9 @@ docker run -d --name a2a-chat -p 3000:3000 hivenexus/a2a-chat:latest
 点击下面的按钮，即可开始部署。
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/HiveNexus/A2A-Chat.git&project-name=a2a-chat)
+
+
+### 附：
+如果需要一个直接和大模型对话的 Chatbot，可以尝试我们的另一个项目：
+
+HiveChat: https://github.com/HiveNexus/HiveChat
