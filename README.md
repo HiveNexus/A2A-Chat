@@ -63,6 +63,12 @@ docker run -d --name a2a-chat -p 3000:3000 hivenexus/a2a-chat:latest
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/HiveNexus/A2A-Chat.git&project-name=a2a-chat)
 
+### 添加 Agent
+由于 A2A 协议发布不久，目前几乎没有公开的基于 A2A 的服务，如需测试验证，需要使用 Google 提供的官方示例：
+
+https://github.com/google/A2A/tree/main/samples
+
+部分示例只能支持本地运行，运行成功后，通过 Agent 地址进行添加。所以更推荐方法 1 进行部署。
 
 ### 附：
 如果需要一个直接和大模型对话的 Chatbot，可以尝试我们的另一个项目：
