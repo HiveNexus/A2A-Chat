@@ -10,16 +10,37 @@
 
 ## 开始使用
 
-首先，运行开发服务器：
+### 方法 1：本地部署（推荐）
+1. 克隆本项目到本地
 
-```bash
+    git clone https://github.com/HiveNexus/a2a-chat.git
+
+2. 安装依赖库
+
+```
+cd a2a-chat
+npm install
+```
+
+3. 启动程序
+
+```
+//测试开发
 npm run dev
+//正式启动
+npm run build
+npm run start
 ```
 
 在浏览器中打开 [http://localhost:3000](http://localhost:3000) 查看。
 
-## 部署
+### 方法 2：Docker 部署
+因为目前几乎没有公开的基于 A2A 的服务，不建议使用 Docker 或公网部署。Google 提供的官方示例基本只能本地运行，只有通过本地 127.0.0.1 或局域网访问，所以更推荐方法 1。
 
-部署 Next.js 应用程序的最简单方法是使用 [Vercel 平台](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme)，它由 Next.js 的创建者开发。
+```bash
+# 拉取镜像
 
-查看 [Next.js 部署文档](https://nextjs.org/docs/app/building-your-application/deploying) 了解更多详情。
+docker run -d --name a2a-chat hivenexus/a2a-chat:latest
+```
+
+在浏览器中打开 http://localhost:3000 查看。
