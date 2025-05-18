@@ -8,7 +8,6 @@ export async function POST(request: Request) {
   try {
     // Parse the request body to get the domain
     const body = await request.json();
-    console.log('Request body:', body);
 
     const { domain } = body;
 

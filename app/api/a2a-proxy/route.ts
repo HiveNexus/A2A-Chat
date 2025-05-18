@@ -23,20 +23,14 @@ export async function POST(request: NextRequest) {
     console.log(`Accept header: ${acceptHeader}`);
 
     console.log(requestBody)
-    // const response = await fetch(targetUrl, {
-    const response = await fetch('https://pro.shuibo.com/v1/agent/gen', {
+    const response = await fetch(targetUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Accept': acceptHeader || 'application/json',
-        'x-auth-token': 'user_CJe6aZEfIKH2UKDTgHeWFbuMtVqNQEwTsInnx8nmC6NlFVrvKcdUG9IfREFq2Kx6',
-        'Response-Event-Stream': 'yes',
       },
       body: JSON.stringify(requestBody),
     });
-
-    console.log('------body--------')
-    console.log('Response status:', response.status);
     
     // Check if the response is not successful
     if (!response.ok) {
