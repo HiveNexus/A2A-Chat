@@ -43,41 +43,20 @@ const getLanguageFromFileName = (fileName: string = ''): string => {
 
 const ArtifactViewer: React.FC<ArtifactViewerProps> = ({ part, name }) => {
   if (part.type === 'text') {
-    // 检查是否是代码文件
     const fileName = name || '';
     const language = getLanguageFromFileName(fileName);
-    const isCodeFile = language !== 'plaintext';
+    const components: Partial<Components> = {
+      pre: ({ children, ...props }) => <pre className="p-0 m-0" {...props}>{children}</pre>,
+      code: ({ children, ...props }) => (
+        <code className={`hljs language-${language}`} {...props}>{children}</code>
+      ),
+    };
 
-    if (isCodeFile) {
-      const components: Partial<Components> = {
-        pre: ({ children, ...props }) => <pre className="p-0 m-0" {...props}>{children}</pre>,
-        code: ({ children, ...props }) => (
-          <code className={`hljs language-${language}`} {...props}>{children}</code>
-        ),
-      };
-
-      return (
-        <div className="rounded-lg">
-            <div className="markdown-body bg-transparent">
-              <ReactMarkdown
-                components={components}
-                rehypePlugins={[[rehypeHighlight, { detect: true, ignoreMissing: true }]]}
-                remarkPlugins={[remarkGfm]}
-              >
-                {'```' + language + '\n' + part.text + '\n```'}
-              </ReactMarkdown>
-            </div>
-        </div>
-      );
-    }
-
-    // 普通文本
     // 检查是否包含错误信息（如 429 Too Many Requests）
     const errorMatch = part.text.match(/\[(\d+)\s+([^\]]+)\]/);
     if (errorMatch) {
       const statusCode = errorMatch[1];
       const statusText = errorMatch[2];
-
       return (
         <div className="markdown-body">
           <div className="text-red-600 font-medium mb-1">
@@ -88,7 +67,18 @@ const ArtifactViewer: React.FC<ArtifactViewerProps> = ({ part, name }) => {
       );
     }
 
-    return <div className="markdown-body">{part.text}</div>;
+    // 统一用 Markdown 渲染
+    return (
+      <div className="markdown-body bg-transparent">
+        <ReactMarkdown
+          components={components}
+          rehypePlugins={[[rehypeHighlight, { detect: true, ignoreMissing: true }]]}
+          remarkPlugins={[remarkGfm]}
+        >
+          {part.text}
+        </ReactMarkdown>
+      </div>
+    );
   }
 
   if (part.type === 'data') {

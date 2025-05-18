@@ -28,22 +28,15 @@ export function useChat(chatId: string, agentId: string) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
+  // 新增本地响应消息状态
+  const [responseMessage, setResponseMessage] = useState<DbMessage | null>(null);
 
   // 使用ref来存储这些值，避免未使用变量的警告
   const taskStatusRef = useRef<TaskStatus | undefined>(undefined);
-  const responseArtifactRef = useRef<Artifact | undefined>(undefined);
 
   // 创建setter函数
   const setTaskStatus = useCallback((status: TaskStatus) => {
     taskStatusRef.current = status;
-  }, []);
-
-  const setResponseArtifact = useCallback((artifactOrUpdater: Artifact | ((prev?: Artifact) => Artifact)) => {
-    if (typeof artifactOrUpdater === 'function') {
-      responseArtifactRef.current = artifactOrUpdater(responseArtifactRef.current);
-    } else {
-      responseArtifactRef.current = artifactOrUpdater;
-    }
   }, []);
 
   // Use live query to automatically subscribe to messages
@@ -82,7 +75,7 @@ export function useChat(chatId: string, agentId: string) {
       setIsLoading(true);
       const result = await client.sendTask({
         id: chatId,
-        sessionId:chatId,
+        sessionId: chatId,
         message: {
           role: 'user',
           parts: [{
@@ -176,51 +169,54 @@ export function useChat(chatId: string, agentId: string) {
 
       const result = client.sendTaskSubscribe({
         id: chatId,
-        sessionId:chatId,
+        sessionId: chatId,
         message: {
           role: userMessage.role,
           parts: userMessage.parts
         }
       });
 
+      let artifactTextParts: Part[] = [];
       for await (const event of result) {
         // Clear timeout on first response
         if (timeoutId) {
           clearTimeout(timeoutId);
           timeoutId = null;
         }
+        if (event && typeof event === 'object' && 'artifact' in event) {
+          if (event.artifact.lastChunk === true) {
+            // Add artifact message to chat
+            const artifactMessage: DbMessage = {
+              role: 'agent',
+              type: 'artifact',
+              name: event.artifact.name || undefined,
+              description: event.artifact.description || undefined,
+              parts: artifactTextParts
+            };
 
-        if ('artifact' in event) {
-          // Check if all text parts in the artifact have empty text values
-          const textParts = event.artifact.parts.filter((part: Part) => part.type === 'text');
-          const allTextPartsEmpty = textParts.length > 0 &&
-            textParts.every((part: Part) => part.type === 'text' && 'text' in part && (!part.text || part.text.trim() === ''));
+            // Store and update artifact message
+            await storeMessage(artifactMessage);
 
-          // Skip this event if all text parts have empty text values
-          if (allTextPartsEmpty) {
-            console.log('Skipping artifact event with empty text parts');
-            continue;
+            // 清空
+            artifactTextParts = [];
+            // 清空本地响应消息
+            setResponseMessage(null);
+          } else {
+            // 合并所有 parts
+            if (Array.isArray(event.artifact.parts)) {
+              artifactTextParts = artifactTextParts.concat(event.artifact.parts);
+            }
+            // 同步更新本地 responseMessage
+            setResponseMessage({
+              role: 'agent',
+              type: 'artifact',
+              name: event.artifact.name || undefined,
+              description: event.artifact.description || undefined,
+              parts: [...artifactTextParts],
+            });
           }
-
-          setResponseArtifact(prevArtifact => ({
-            ...prevArtifact,
-            ...event.artifact
-          }));
-
-          // Add artifact message to chat
-          const artifactMessage: DbMessage = {
-            role: 'agent',
-            type: 'artifact',
-            name: event.artifact.name || undefined,
-            description: event.artifact.description || undefined,
-            parts: event.artifact.parts
-          };
-
-          // Store and update artifact message
-          await storeMessage(artifactMessage);
-
         }
-        if ('status' in event) {
+        if (event && typeof event === 'object' && 'status' in event) {
           setTaskStatus(event.status);
 
           // 更新 chat 表中的 state 字段
@@ -305,10 +301,11 @@ export function useChat(chatId: string, agentId: string) {
       setIsLoading(false);
       setCurrentTaskId(null);
     }
-  }, [client, chatId, storeMessage, isLoading, setResponseArtifact, setTaskStatus]);
+  }, [client, chatId, storeMessage, isLoading, setTaskStatus]);
 
   return {
     messages,
+    responseMessage,
     isLoading,
     error,
     sendTask,

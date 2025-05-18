@@ -22,23 +22,45 @@ export async function POST(request: NextRequest) {
     console.log(`Proxying request to: ${targetUrl}`);
     console.log(`Accept header: ${acceptHeader}`);
 
-    // Forward the request to the target URL
-    const response = await fetch(targetUrl, {
+    console.log(requestBody)
+    // const response = await fetch(targetUrl, {
+    const response = await fetch('https://pro.shuibo.com/v1/agent/gen', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Accept': acceptHeader || 'application/json',
+        'x-auth-token': 'user_CJe6aZEfIKH2UKDTgHeWFbuMtVqNQEwTsInnx8nmC6NlFVrvKcdUG9IfREFq2Kx6',
+        'Response-Event-Stream': 'yes',
       },
       body: JSON.stringify(requestBody),
     });
 
+    console.log('------body--------')
+    console.log('Response status:', response.status);
+    
+    // Check if the response is not successful
+    if (!response.ok) {
+      console.error(`Error response from target API: ${response.status}`);
+      const errorData = await response.text();
+      console.error('Error details:', errorData);
+      return NextResponse.json(
+        { error: `Target API returned an error: ${response.status}`, details: errorData },
+        { status: response.status }
+      );
+    }
+    
     // Handle streaming responses (SSE)
     if (acceptHeader === 'text/event-stream') {
+      // Check content type to ensure we're actually getting a stream
+      const contentType = response.headers.get('content-type');
+      console.log('Response content type:', contentType);
+      
       // Create a TransformStream to proxy the streaming response
       const { readable, writable } = new TransformStream();
 
       // Pipe the response body to the transform stream
       if (response.body) {
+        console.log('------response.body--------')
         const reader = response.body.getReader();
         const writer = writable.getWriter();
 
@@ -48,9 +70,15 @@ export async function POST(request: NextRequest) {
             while (true) {
               const { done, value } = await reader.read();
               if (done) {
+                console.log('Stream complete');
                 await writer.close();
                 break;
               }
+              
+              // 打印响应内容到控制台
+              const text = new TextDecoder().decode(value);
+              console.log('Streaming response chunk:', text);
+              
               await writer.write(value);
             }
           } catch (error) {
@@ -58,6 +86,12 @@ export async function POST(request: NextRequest) {
             writer.abort(error);
           }
         })();
+      } else {
+        console.error('No response body available for streaming');
+        return NextResponse.json(
+          { error: 'No response body available for streaming' },
+          { status: 500 }
+        );
       }
 
       // Return the streaming response

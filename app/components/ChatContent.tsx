@@ -10,6 +10,7 @@ import ArtifactViewer from '@/app/components/ArtifactViewer';
 import MessageItem from '@/app/components/MessageItem';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/database';
+import ArtifactDetails from '@/app/components/ArtifactSidebar';
 
 interface ChatContentProps {
   chatId: string;
@@ -18,8 +19,11 @@ interface ChatContentProps {
 
 const ChatContent: React.FC<ChatContentProps> = ({ chatId, agentId }) => {
   const [input, setInput] = useState('');
-  const [selectedArtifact, setSelectedArtifact] = useState<{ id: string, name?: string, parts: Part[] } | null>(null);
-  const { messages, sendTaskSubscribe, isLoading, cancelTask, error } = useChat(chatId, agentId);
+  const [selectedArtifact, setSelectedArtifact] = useState<
+    | { id: string; name?: string; parts: Part[]; isLive?: boolean }
+    | null
+  >(null);
+  const { messages, responseMessage, sendTaskSubscribe, isLoading, cancelTask, error } = useChat(chatId, agentId);
   const { agents } = useAgents();
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const [showInputRequiredBanner, setShowInputRequiredBanner] = useState(false);
@@ -45,7 +49,7 @@ const ChatContent: React.FC<ChatContentProps> = ({ chatId, agentId }) => {
     if (selectedArtifact && selectedArtifact.id === artifact.id) {
       setSelectedArtifact(null);
     } else {
-      setSelectedArtifact(artifact);
+      setSelectedArtifact({ ...artifact, isLive: false });
     }
   };
 
@@ -60,7 +64,7 @@ const ChatContent: React.FC<ChatContentProps> = ({ chatId, agentId }) => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, isLoading]);
+  }, [messages, isLoading, showInputRequiredBanner]);
 
   // Update the input-required banner visibility based on chat state and loading state
   useEffect(() => {
@@ -77,6 +81,22 @@ const ChatContent: React.FC<ChatContentProps> = ({ chatId, agentId }) => {
       setShowInputRequiredBanner(false);
     }
   }, [chat?.state, isLoading]);
+
+  useEffect(() => {
+    if (responseMessage?.type === 'artifact') {
+      setSelectedArtifact({
+        id: `live-${responseMessage.name || ''}`,
+        name: responseMessage.name,
+        parts: responseMessage.parts,
+        isLive: true,
+      });
+    } else {
+      if (selectedArtifact?.isLive) {
+        setSelectedArtifact(null);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [responseMessage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,6 +188,33 @@ const ChatContent: React.FC<ChatContentProps> = ({ chatId, agentId }) => {
               </div>
             ))}
 
+            {/* 实时显示当前响应中的 artifact 消息 */}
+            {responseMessage?.type === 'artifact' && (
+              <div className="flex justify-start mt-2">
+                <div
+                  onClick={() => {
+                    setSelectedArtifact({
+                      id: `live-${responseMessage.name || ''}`,
+                      name: responseMessage.name,
+                      parts: responseMessage.parts,
+                      isLive: true,
+                    });
+                  }}
+                  className={`hover:bg-gray-50 cursor-pointer bg-white rounded-lg p-4 shadow-sm border border-blue-300 min-w-xl ${
+                    selectedArtifact?.id === `live-${responseMessage.name || ''}` ? 'ring-2 ring-blue-500' : ''
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <FileTextOutlined />
+                    <span className="font-medium text-blue-700">{responseMessage.name || 'Artifact (响应中...)'}</span>
+                    <svg className="animate-spin h-4 w-4 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                  </div>
+                  {responseMessage.description && <div className="mt-2 text-sm text-gray-600"><p>{responseMessage.description}</p></div>}
+                  <div className="absolute top-2 right-2 text-xs text-blue-400">响应中...</div>
+                </div>
+              </div>
+            )}
+
             {/* Loading animation */}
             {isLoading && (
               <div className="flex justify-start mt-4">
@@ -218,35 +265,11 @@ const ChatContent: React.FC<ChatContentProps> = ({ chatId, agentId }) => {
           </>
         )}
       </div>
-
       {/* Artifact Details Sliding Panel */}
-      <div
-        className={`fixed inset-y-0 right-0 w-1/2 z-10 bg-white shadow-xl transform transition-all duration-300 ease-in-out ${selectedArtifact ? 'translate-x-0' : 'translate-x-full'
-          }`}
-      >
-        {selectedArtifact && (
-          <div className="h-full flex flex-col">
-            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-xl font-semibold">{selectedArtifact.name || 'Artifact Details'}</h2>
-              <button
-                onClick={() => setSelectedArtifact(null)}
-                className="p-2 hover:bg-gray-100 rounded-full cursor-pointer"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4">
-              {selectedArtifact.parts.map((part, index) => (
-                <div key={index} className="mb-4">
-                  {renderArtifactPart(part, selectedArtifact.name)}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+      <ArtifactDetails
+        artifact={selectedArtifact}
+        onClose={() => setSelectedArtifact(null)}
+      />
 
       <form onSubmit={handleSubmit} className="sticky bottom-0 p-4 bg-white border-t border-gray-200 shadow-md">
         <div className="relative flex items-center">
