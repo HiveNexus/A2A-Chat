@@ -20,7 +20,7 @@ interface ChatContentProps {
 const ChatContent: React.FC<ChatContentProps> = ({ chatId, agentId }) => {
   const [input, setInput] = useState('');
   const [selectedArtifact, setSelectedArtifact] = useState<
-    | { id: string; name?: string; parts: Part[]; isLive?: boolean }
+    | { artifactId: string; name?: string; parts: Part[]; isLive?: boolean }
     | null
   >(null);
   const { messages, responseMessage, sendTaskSubscribe, isLoading, cancelTask, error } = useChat(chatId, agentId);
@@ -45,8 +45,8 @@ const ChatContent: React.FC<ChatContentProps> = ({ chatId, agentId }) => {
     }
   `;
 
-  const handleArtifactClick = (artifact: { id: string, name?: string, parts: Part[] }) => {
-    if (selectedArtifact && selectedArtifact.id === artifact.id) {
+  const handleArtifactClick = (artifact: { artifactId: string, name?: string, parts: Part[] }) => {
+    if (selectedArtifact && selectedArtifact.artifactId === artifact.artifactId) {
       setSelectedArtifact(null);
     } else {
       setSelectedArtifact({ ...artifact, isLive: false });
@@ -85,7 +85,7 @@ const ChatContent: React.FC<ChatContentProps> = ({ chatId, agentId }) => {
   useEffect(() => {
     if (responseMessage?.type === 'artifact') {
       setSelectedArtifact({
-        id: `live-${responseMessage.name || ''}`,
+        artifactId: `live-${responseMessage.name || ''}`,
         name: responseMessage.name,
         parts: responseMessage.parts,
         isLive: true,
@@ -163,15 +163,14 @@ const ChatContent: React.FC<ChatContentProps> = ({ chatId, agentId }) => {
                 {message.type === 'artifact' ? (
                   <div
                     onClick={() => {
-                      // Create a unique ID using the message index and name
                       handleArtifactClick({
-                        id: `${index}-${message.name || ''}`,
+                        artifactId: `${index}-${message.name || ''}`,
                         name: message.name,
                         parts: message.parts
                       })
                     }}
                     className={`hover:bg-gray-50 cursor-pointer bg-white rounded-lg p-4 shadow-sm border border-gray-200 min-w-xl ${
-                      selectedArtifact?.id === `${index}-${message.name || ''}` ? 'ring-2 ring-blue-500' : ''
+                      selectedArtifact?.artifactId === `${index}-${message.name || ''}` ? 'ring-2 ring-blue-500' : ''
                     }`}
                   >
                     <div className="flex items-center space-x-3">
@@ -194,14 +193,14 @@ const ChatContent: React.FC<ChatContentProps> = ({ chatId, agentId }) => {
                 <div
                   onClick={() => {
                     setSelectedArtifact({
-                      id: `live-${responseMessage.name || ''}`,
+                      artifactId: `live-${responseMessage.name || ''}`,
                       name: responseMessage.name,
                       parts: responseMessage.parts,
                       isLive: true,
                     });
                   }}
                   className={`hover:bg-gray-50 cursor-pointer bg-white rounded-lg p-4 shadow-sm border border-blue-300 min-w-xl ${
-                    selectedArtifact?.id === `live-${responseMessage.name || ''}` ? 'ring-2 ring-blue-500' : ''
+                    selectedArtifact?.artifactId === `live-${responseMessage.name || ''}` ? 'ring-2 ring-blue-500' : ''
                   }`}
                 >
                   <div className="flex items-center space-x-3">

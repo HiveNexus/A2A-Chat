@@ -1,5 +1,5 @@
 import { A2AClient } from './A2AClient';
-import { JSONRPCRequest } from '@/types/a2a';
+import { JSONRPCRequest } from '@/types/a2a_old';
 
 /**
  * A client implementation for the A2A protocol that uses a server-side proxy
@@ -63,8 +63,7 @@ export class ProxiedA2AClient extends A2AClient {
     if (!this.useProxy) {
       return super.sendTask(params);
     }
-
-    return this.makeProxiedRequest("tasks/send", params);
+    return this.makeProxiedRequest("message/send", params);
   }
 
   /**
@@ -96,8 +95,7 @@ export class ProxiedA2AClient extends A2AClient {
     if (!this.useProxy) {
       return super.sendTaskSubscribe(params);
     }
-
-    return this.makeProxiedStreamingRequest("tasks/sendSubscribe", params);
+    return this.makeProxiedStreamingRequest("message/stream", params);
   }
 
   /**

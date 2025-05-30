@@ -3,7 +3,7 @@ import ArtifactViewer from '@/app/components/ArtifactViewer';
 import { Part } from '@/types/a2a';
 
 interface ArtifactDetailsProps {
-  artifact: { id: string; name?: string; parts: Part[] } | null;
+  artifact: { artifactId: string; name?: string; parts: Part[] } | null;
   onClose: () => void;
 }
 
