@@ -4,6 +4,7 @@ import { Task, Artifact, TaskStatus, Part } from '@/types/a2a';
 import { ProxiedA2AClient } from '@/app/service/ProxiedA2AClient';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/database';
+import { v4 as uuidv4 } from 'uuid';
 
 import { getUserFriendlyErrorMessage } from '@/app/utils/errorHandling';
 
@@ -70,29 +71,26 @@ export function useChat(chatId: string, agentId: string) {
       setError('Agent client not available');
       return null;
     }
-
     try {
       setIsLoading(true);
       const result = await client.sendTask({
-        id: chatId,
-        sessionId: chatId,
         message: {
           role: 'user',
           parts: [{
-            type: 'text' as const,
+            type: 'text',
             text: content
-          }]
+          }],
+          messageId: uuidv4()
         }
       });
       return result;
     } catch (err) {
-      // Use the helper function to format the error message
       setError(getUserFriendlyErrorMessage(err));
       return null;
     } finally {
       setIsLoading(false);
     }
-  }, [client, chatId]);
+  }, [client]);
 
   const cancelTask = useCallback(async () => {
     if (!client || !currentTaskId) {
@@ -117,15 +115,10 @@ export function useChat(chatId: string, agentId: string) {
       setError('Agent client not available');
       return;
     }
-
     try {
       setIsLoading(true);
       setError(null);
-
-      // Set the current task ID to the chat ID (used for cancellation)
       setCurrentTaskId(chatId);
-
-      // Add user message immediately
       const userMessage: DbMessage = {
         role: 'user',
         type: 'message',
@@ -134,48 +127,36 @@ export function useChat(chatId: string, agentId: string) {
           text: content
         }]
       };
-
-      // Store and update user message
       await storeMessage(userMessage);
-
-      // Check if this is the first message in the conversation
       const isFirstMessage = (await db.messages.where({ chatId }).count()) <= 1;
-
-      // Set up timeout for first message
       let timeoutId: NodeJS.Timeout | null = null;
-
       if (isFirstMessage) {
-        // Update conversation title with the first message content (max 60 chars)
         const titleText = content.trim();
         const truncatedTitle = titleText.length > 60
           ? titleText.substring(0, 60) + '...'
           : titleText;
-
-        // Update the chat title in the database
         await db.chats.where({ id: chatId }).modify({
           title: truncatedTitle,
           updatedAt: new Date(),
         });
-
         timeoutId = setTimeout(() => {
           if (isLoading) {
-            // If still loading after timeout, show error
             setError('服务器响应超时，请稍后再试');
             setIsLoading(false);
             setCurrentTaskId(null);
           }
-        }, 20000); // 20 seconds timeout
+        }, 20000);
       }
-
       const result = client.sendTaskSubscribe({
-        id: chatId,
-        sessionId: chatId,
         message: {
-          role: userMessage.role,
-          parts: userMessage.parts
+          role: 'user',
+          parts: [{
+            type: 'text',
+            text: content
+          }],
+          messageId: uuidv4()
         }
       });
-
       let artifactTextParts: Part[] = [];
       for await (const event of result) {
         // Clear timeout on first response
@@ -183,99 +164,67 @@ export function useChat(chatId: string, agentId: string) {
           clearTimeout(timeoutId);
           timeoutId = null;
         }
-        if (event && typeof event === 'object' && 'artifact' in event) {
-          if (event.artifact.lastChunk === true) {
+        // 新协议 artifact-update
+        if (event && event.kind === 'artifact-update') {
+          if (Array.isArray(event.artifact.parts)) {
+            artifactTextParts = artifactTextParts.concat(event.artifact.parts);
+          }
+          // 实时更新 responseMessage
+          setResponseMessage({
+            role: 'agent',
+            type: 'artifact',
+            name: event.artifact.name,
+            description: event.artifact.description,
+            parts: [...artifactTextParts],
+          });
+          if (event.lastChunk) {
             // Add artifact message to chat
             const artifactMessage: DbMessage = {
               role: 'agent',
               type: 'artifact',
-              name: event.artifact.name || undefined,
-              description: event.artifact.description || undefined,
-              parts: artifactTextParts
-            };
-
-            // Store and update artifact message
-            await storeMessage(artifactMessage);
-
-            // 清空
-            artifactTextParts = [];
-            // 清空本地响应消息
-            setResponseMessage(null);
-          } else {
-            // 合并所有 parts
-            if (Array.isArray(event.artifact.parts)) {
-              artifactTextParts = artifactTextParts.concat(event.artifact.parts);
-            }
-            // 同步更新本地 responseMessage
-            setResponseMessage({
-              role: 'agent',
-              type: 'artifact',
-              name: event.artifact.name || undefined,
-              description: event.artifact.description || undefined,
+              name: event.artifact.name,
+              description: event.artifact.description,
               parts: [...artifactTextParts],
-            });
+            };
+            await storeMessage(artifactMessage);
+            artifactTextParts = [];
+            setIsLoading(false);
+            setCurrentTaskId(null);
+            setResponseMessage(null);
           }
         }
-        if (event && typeof event === 'object' && 'status' in event) {
+        // 新协议 status-update
+        if (event && event.kind === 'status-update') {
           setTaskStatus(event.status);
-
-          // 更新 chat 表中的 state 字段
           if (event.status.state) {
             await db.chats.where({ id: chatId }).modify({
               state: event.status.state,
               updatedAt: new Date(),
             });
           }
-
-          // 即使任务状态为failed，也不做特殊处理，让消息正常显示
-          // If there's a message in the status, add it to chat
           if (event.status.message) {
-            // Check if the message has non-empty text parts
-            const hasNonEmptyTextParts = event.status.message.parts.some((part: unknown) => {
-              // 检查是否是只有text属性的对象
-              if (typeof part === 'object' && part !== null && 'text' in part) {
-                const textValue = (part as { text: unknown }).text;
-                return typeof textValue === 'string' && textValue.trim() !== '';
+            const normalizedParts: Part[] = [];
+            for (const part of event.status.message.parts) {
+              if (typeof part === 'object' && part !== null && 'text' in part && typeof part.text === 'string') {
+                normalizedParts.push({
+                  type: 'text',
+                  text: part.text
+                });
+              } else {
+                normalizedParts.push(part as Part);
               }
-              return false;
-            });
-
-            if (hasNonEmptyTextParts || event.status.message.parts.some((part: unknown) =>
-              typeof part === 'object' && part !== null && 'type' in part && (part as { type: string }).type !== 'text'
-            )) {
-              // 确保每个part都有type字段
-              const normalizedParts: Part[] = [];
-
-              for (const part of event.status.message.parts) {
-                // 检查是否是只有text属性的对象
-                if (typeof part === 'object' && part !== null && 'text' in part && typeof part.text === 'string') {
-                  // 创建一个符合TextPart接口的对象
-                  const textPart: Part = {
-                    type: 'text',
-                    text: part.text
-                  };
-                  normalizedParts.push(textPart);
-                } else {
-                  // 如果已经是合法的Part对象，直接添加
-                  normalizedParts.push(part as Part);
-                }
-              }
-
-              const statusMessage: DbMessage = {
-                role: event.status.message.role,
-                type: 'message',
-                parts: normalizedParts
-              };
-
-              // 打印原始消息和规范化后的消息，用于调试
-              console.log('Original message parts:', JSON.stringify(event.status.message.parts));
-              console.log('Normalized message parts:', JSON.stringify(normalizedParts));
-
-              // Store and update status message
-              await storeMessage(statusMessage);
-            } else {
-              console.log('Skipping status message with empty text parts');
             }
+            const statusMessage: DbMessage = {
+              role: event.status.message.role,
+              type: 'message',
+              parts: normalizedParts
+            };
+            await storeMessage(statusMessage);
+          }
+          // 任务完成时关闭 loading
+          if (event.final || event.status.state === 'completed' || event.status.state === 'failed' || event.status.state === 'canceled') {
+            setIsLoading(false);
+            setCurrentTaskId(null);
           }
         }
       }

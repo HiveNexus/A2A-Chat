@@ -8,7 +8,7 @@ import {
   ErrorCodeTaskNotCancelable,
   ErrorCodePushNotificationNotSupported,
   ErrorCodeUnsupportedOperation
-} from '@/types/a2a';
+} from '@/types/a2a_old';
 
 /**
  * Maps error codes to user-friendly error messages

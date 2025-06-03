@@ -1,36 +1,29 @@
 // Import necessary types from schema.ts
 import {
-  // Core types
   AgentCard,
-  AgentCapabilities, // Needed for supports() method check
+  AgentCapabilities,
   JSONRPCRequest,
   JSONRPCResponse,
   JSONRPCError,
   A2ARequest,
-  // Full Request types (needed for internal generics)
-  SendTaskRequest,
+  SendMessageRequest,
   GetTaskRequest,
   CancelTaskRequest,
-  SendTaskStreamingRequest,
+  SendStreamingMessageRequest,
   TaskResubscriptionRequest,
-  SetTaskPushNotificationRequest,
-  GetTaskPushNotificationRequest,
-  // Specific Params types (used directly in public method signatures)
-  TaskSendParams,
-  TaskQueryParams, // Used by get, resubscribe
-  TaskIdParams, // Used by cancel, getTaskPushNotificationConfig
-  TaskPushNotificationConfig, // Used by setTaskPushNotificationConfig
-  // Full Response types (needed for internal generics and result extraction)
-  SendTaskResponse,
+  SetTaskPushNotificationConfigRequest,
+  GetTaskPushNotificationConfigRequest,
+  MessageSendParams,
+  TaskQueryParams,
+  TaskIdParams,
+  TaskPushNotificationConfig,
+  SendMessageResponse,
   GetTaskResponse,
   CancelTaskResponse,
-  SendTaskStreamingResponse,
-  SetTaskPushNotificationResponse,
-  GetTaskPushNotificationResponse,
-  // Response Payload types (used in public method return signatures)
+  SendStreamingMessageResponse,
+  SetTaskPushNotificationConfigResponse,
+  GetTaskPushNotificationConfigResponse,
   Task,
-  // TaskHistory, // Not currently implemented
-  // Streaming Payload types (used in public method yield signatures)
   TaskStatusUpdateEvent,
   TaskArtifactUpdateEvent,
 } from "@/types/a2a";
@@ -408,15 +401,14 @@ export class A2AClient {
    * @param params The parameters for the tasks/send method.
    * @returns A promise resolving to the Task object or null.
    */
-  async sendTask(params: TaskSendParams): Promise<Task | null> {
-    const httpResponse = await this._makeHttpRequest<SendTaskRequest>(
-      "tasks/send",
+  async sendTask(params: MessageSendParams): Promise<Task | null> {
+    const httpResponse = await this._makeHttpRequest<SendMessageRequest>(
+      "message/send",
       params
     );
-    // Pass the full Response type to handler, which returns Res['result']
-    return this._handleJsonResponse<SendTaskResponse>(
+    return this._handleJsonResponse<SendMessageResponse>(
       httpResponse,
-      "tasks/send"
+      "message/send"
     );
   }
 
@@ -426,21 +418,20 @@ export class A2AClient {
    * @yields TaskStatusUpdateEvent or TaskArtifactUpdateEvent payloads.
    */
   sendTaskSubscribe(
-    params: TaskSendParams
+    params: MessageSendParams
   ): AsyncIterable<TaskStatusUpdateEvent | TaskArtifactUpdateEvent> {
     const streamGenerator = async function* (
       this: A2AClient
     ): AsyncIterable<TaskStatusUpdateEvent | TaskArtifactUpdateEvent> {
       const httpResponse =
-        await this._makeHttpRequest<SendTaskStreamingRequest>(
-          "tasks/sendSubscribe",
+        await this._makeHttpRequest<SendStreamingMessageRequest>(
+          "message/stream",
           params,
           "text/event-stream"
         );
-      // Pass the full Response type to handler, which yields Res['result']
-      yield* this._handleStreamingResponse<SendTaskStreamingResponse>(
+      yield* this._handleStreamingResponse<SendStreamingMessageResponse>(
         httpResponse,
-        "tasks/sendSubscribe"
+        "message/stream"
       );
     }.bind(this)();
 
@@ -484,11 +475,11 @@ export class A2AClient {
   async setTaskPushNotification(
     params: TaskPushNotificationConfig
   ): Promise<TaskPushNotificationConfig | null> {
-    const httpResponse = await this._makeHttpRequest<SetTaskPushNotificationRequest>(
+    const httpResponse = await this._makeHttpRequest<SetTaskPushNotificationConfigRequest>(
       "tasks/pushNotification/set",
       params
     );
-    return this._handleJsonResponse<SetTaskPushNotificationResponse>(
+    return this._handleJsonResponse<SetTaskPushNotificationConfigResponse>(
       httpResponse,
       "tasks/pushNotification/set"
     );
@@ -502,11 +493,11 @@ export class A2AClient {
   async getTaskPushNotification(
     params: TaskIdParams
   ): Promise<TaskPushNotificationConfig | null> {
-    const httpResponse = await this._makeHttpRequest<GetTaskPushNotificationRequest>(
+    const httpResponse = await this._makeHttpRequest<GetTaskPushNotificationConfigRequest>(
       "tasks/pushNotification/get",
       params
     );
-    return this._handleJsonResponse<GetTaskPushNotificationResponse>(
+    return this._handleJsonResponse<GetTaskPushNotificationConfigResponse>(
       httpResponse,
       "tasks/pushNotification/get"
     );
@@ -529,7 +520,7 @@ export class A2AClient {
           params,
           "text/event-stream"
         );
-      yield* this._handleStreamingResponse<SendTaskStreamingResponse>(
+      yield* this._handleStreamingResponse<SendStreamingMessageResponse>(
         httpResponse,
         "tasks/resubscribe"
       );
